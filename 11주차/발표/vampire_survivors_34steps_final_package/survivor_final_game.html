@@ -1,0 +1,1322 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<title>SURVIVOR.IO - HTML5 Canvas 최종 완성작</title>
+<style>
+  * { box-sizing: border-box; user-select: none; }
+  body { margin: 0; background: #090d16; color: #f8fafc; font-family: 'Pretendard', 'Malgun Gothic', sans-serif; display: flex; flex-direction: column; justify-content: center; align-items: center; min-height: 100vh; overflow: hidden; }
+  #game-wrapper { position: relative; width: 960px; height: 600px; border: 2px solid #334155; border-radius: 12px; overflow: hidden; box-shadow: 0 20px 50px rgba(0,0,0,0.85); background: #000; }
+  canvas { display: block; cursor: default; }
+  .modal { position: absolute; inset: 0; background: rgba(2, 6, 23, 0.88); display: none; flex-direction: column; justify-content: center; align-items: center; z-index: 20; backdrop-filter: blur(6px); }
+  .modal.active { display: flex; }
+  .card-row { display: flex; gap: 18px; margin-top: 22px; }
+  .card { background: #1e293b; border: 2px solid #475569; border-radius: 12px; padding: 20px; width: 220px; text-align: center; cursor: pointer; transition: 0.2s; }
+  .card:hover { border-color: #facc15; transform: translateY(-6px); background: #334155; box-shadow: 0 10px 25px rgba(250, 204, 21, 0.2); }
+  .card h3 { margin: 0 0 10px 0; color: #facc15; font-size: 19px; }
+  .card p { margin: 0; font-size: 13px; color: #cbd5e1; line-height: 1.5; }
+  .btn-main { background: #eab308; color: #0f172a; border: none; padding: 10px 22px; font-size: 15px; font-weight: 800; border-radius: 8px; cursor: pointer; margin-top: 14px; transition: 0.15s; }
+  .btn-main:hover { background: #facc15; transform: scale(1.03); }
+  #controls-hint { margin-top: 12px; font-size: 13px; color: #94a3b8; background: #1e293b; padding: 8px 20px; border-radius: 20px; border: 1px solid #334155; }
+  #controls-hint span { color: #38bdf8; font-weight: bold; }
+</style>
+</head>
+<body>
+
+<div id="game-wrapper">
+  <canvas id="canvas" width="960" height="600"></canvas>
+
+  <!-- Title & Permanent Upgrade Shop Modal -->
+  <div id="titleModal" class="modal active">
+    <h1 style="font-size: 46px; margin: 0; color: #38bdf8; text-shadow: 0 0 20px rgba(56,189,248,0.7); letter-spacing: 1px;">SURVIVOR.IO</h1>
+    <p style="color: #94a3b8; margin-top: 6px; font-size: 14px;">HTML5 Canvas Vampire Survivors Action Game</p>
+    <div style="margin: 16px 0; background: #0f172a; padding: 10px 24px; border-radius: 24px; border: 1px solid #eab308; color: #facc15; font-weight: bold; font-size: 15px;">
+      💰 보유 골드: <span id="goldDisplay">150</span> G &nbsp;|&nbsp; 🏆 최고 생존 기록: <span id="bestTimeDisplay">00:00</span>
+    </div>
+        <div style="margin: 4px 0 12px 0; display: flex; gap: 8px; align-items: center; background: #0f172a; padding: 6px 14px; border-radius: 10px; border: 1px solid #334155;">
+      <span style="font-size: 13px; color: #cbd5e1; font-weight: bold; margin-right: 4px;">🔥 시작 난이도:</span>
+      <button id="diff_easy" class="btn-main" style="margin:0; padding:6px 12px; font-size:12px; background:#22c55e; color:#0f172a;" onclick="setDifficulty('easy')">입문 (Easy)</button>
+      <button id="diff_normal" class="btn-main" style="margin:0; padding:6px 12px; font-size:12px; background:#38bdf8; color:#0f172a; outline:2px solid #fff;" onclick="setDifficulty('normal')">일반 (Normal)</button>
+      <button id="diff_hard" class="btn-main" style="margin:0; padding:6px 12px; font-size:12px; background:#f97316; color:#0f172a;" onclick="setDifficulty('hard')">숙련 (Hard)</button>
+      <button id="diff_hell" class="btn-main" style="margin:0; padding:6px 12px; font-size:12px; background:#ef4444; color:#fff;" onclick="setDifficulty('hell')">지옥 (Hell)</button>
+    </div>
+    <div id="diffDescTxt" style="font-size: 12px; color: #38bdf8; margin-bottom: 4px;">[일반] 표준 밸런스 (적 스탯 x1.0 / 골드 보상 x1.0) — 클래스를 클릭해 출격하세요!</div>
+    <div class="card-row">
+      <div class="card" onclick="startGameWithClass('warrior')">
+        <h3>⚔️ 전사 (Warrior)</h3>
+        <p>최대 체력 150<br>공전 회전칼날 3개 기본 장착<br><span style="color:#38bdf8;">근접 안정성 특화</span></p>
+      </div>
+      <div class="card" onclick="startGameWithClass('mage')">
+        <h3>🔮 마법사 (Mage)</h3>
+        <p>화염 오라 반경 확대<br>천벌 낙뢰 쿨타임 감소<br><span style="color:#a855f7;">광역 마법 딜링 특화</span></p>
+      </div>
+      <div class="card" onclick="startGameWithClass('ranger')">
+        <h3>🏹 레인저 (Ranger)</h3>
+        <p>이동 속도 +25% 증가<br>기본 탄환 2연발 멀티샷<br><span style="color:#4ade80;">기동성 및 카이팅 특화</span></p>
+      </div>
+    </div>
+    <div style="margin-top: 20px; display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; max-width: 780px;">
+      <button id="btnBuyAtk" class="btn-main" style="background:#38bdf8; margin-top:6px;" onclick="buyUpgrade('atk')">⚔️ 공격력 강화 Lv.0 (100G)</button>
+      <button id="btnBuyHp" class="btn-main" style="background:#22c55e; margin-top:6px;" onclick="buyUpgrade('hp')">❤️ 최대체력 강화 Lv.0 (80G)</button>
+      <button id="btnBuyMag" class="btn-main" style="background:#a855f7; color:#fff; margin-top:6px;" onclick="buyUpgrade('mag')">🧲 경험치 자석 범위 Lv.0/3 (150G)</button>
+    </div>
+    <div style="font-size:12px; color:#94a3b8; margin-top:8px;">* 공격력/최대체력은 <strong style="color:#facc15;">무제한(∞) 강화</strong> 가능 | 5~8분 생존 시 ☀️태양 사신 출현과 함께 해당 난이도 <strong style="color:#4ade80;">영구 CLEAR 잠금</strong> <button onclick="resetClearedDiffs()" style="margin-left:8px; background:#1e293b; color:#94a3b8; border:1px solid #475569; border-radius:4px; padding:2px 6px; font-size:11px; cursor:pointer;">잠금 초기화</button></div>
+  </div>
+
+  <!-- Level Up 3-Choice Modal -->
+  <div id="levelModal" class="modal">
+    <h2 style="font-size: 34px; color: #facc15; margin: 0; text-shadow: 0 0 12px rgba(250,204,21,0.5);">✨ LEVEL UP!</h2>
+    <p style="color: #cbd5e1; margin-top: 6px;">강화할 무기 또는 특성을 하나 선택하세요</p>
+    <div class="card-row">
+      <div class="card" onclick="selectSkill('blade')">
+        <h3>🗡️ 회전 칼날 추가</h3>
+        <p>플레이어 주위를 공전하는<br>회전 칼날 개수 +1 증가<br>및 체력 20 즉시 회복</p>
+      </div>
+      <div class="card" onclick="selectSkill('lightning')">
+        <h3>⚡ 천벌 낙뢰 강화</h3>
+        <p>무작위 적에게 떨어지는<br>번개 데미지 +30 증가<br>및 발동 주기 단축</p>
+      </div>
+      <div class="card" onclick="selectSkill('multishot')">
+        <h3>🔥 다중 탄환 & 오라</h3>
+        <p>자동 타겟팅 탄환 발사 수 +1<br>및 화염 오라 반경 +15px 확대</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Game Over & Damage Contribution Report Modal -->
+  <div id="reportModal" class="modal">
+    <h2 style="font-size: 36px; color: #ef4444; margin: 0;">💀 GAME OVER - 전투 분석 리포트</h2>
+    <p id="finalSummaryTxt" style="color: #facc15; font-weight: bold; margin: 8px 0 18px 0; font-size: 16px;">생존 시간: 00:00 | 처치 수: 0 Kills</p>
+    <div style="width: 500px; background: #1e293b; padding: 22px; border-radius: 12px; border: 1px solid #475569;">
+      <div style="font-weight: bold; margin-bottom: 14px; color: #cbd5e1; font-size: 14px;">📊 무기별 누적 데미지 기여도</div>
+      <div style="margin-bottom: 14px;">
+        <div style="display:flex; justify-content:space-between; font-size:14px; margin-bottom:5px;"><span>🔫 스마트 자동 타겟팅 탄환</span><span id="dmgBulletTxt">0 (0%)</span></div>
+        <div style="background:#0f172a; height:14px; border-radius:7px; overflow:hidden;"><div id="barBullet" style="width:0%; height:100%; background:#38bdf8;"></div></div>
+      </div>
+      <div style="margin-bottom: 14px;">
+        <div style="display:flex; justify-content:space-between; font-size:14px; margin-bottom:5px;"><span>🗡️ 공전 회전 칼날</span><span id="dmgBladeTxt">0 (0%)</span></div>
+        <div style="background:#0f172a; height:14px; border-radius:7px; overflow:hidden;"><div id="barBlade" style="width:0%; height:100%; background:#facc15;"></div></div>
+      </div>
+      <div style="margin-bottom: 6px;">
+        <div style="display:flex; justify-content:space-between; font-size:14px; margin-bottom:5px;"><span>⚡ 천벌 낙뢰 & 화염 오라</span><span id="dmgSkillTxt">0 (0%)</span></div>
+        <div style="background:#0f172a; height:14px; border-radius:7px; overflow:hidden;"><div id="barSkill" style="width:0%; height:100%; background:#a855f7;"></div></div>
+      </div>
+    </div>
+    <div style="display:flex; gap:12px; margin-top: 18px;">
+      <button class="btn-main" onclick="returnToTitle()">🏠 타이틀 및 상점으로</button>
+    </div>
+  </div>
+</div>
+
+<div id="controls-hint">
+  <span>WASD / 방향키</span> 이동 &nbsp;|&nbsp; <span>스마트 오토 타겟팅</span> &nbsp;|&nbsp; <span>Space</span> 대시 &nbsp;|&nbsp; <span>ESC</span> 상태창 &nbsp;|&nbsp; <span>5~8분 생존 시</span> ☀️태양 사신 출현 & 난이도 클리어 판정 (시연용 즉시 소환: <span>T키</span>)
+</div>
+
+<script>
+const canvas = document.getElementById('canvas');
+const ctx = canvas.getContext('2d');
+
+// Web Audio API Synthesizer
+const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+function playTone(freq, type, duration, vol=0.05) {
+  try {
+    if (audioCtx.state === 'suspended') audioCtx.resume();
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    osc.type = type;
+    osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+    gain.gain.setValueAtTime(vol, audioCtx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + duration);
+    osc.connect(gain);
+    gain.connect(audioCtx.destination);
+    osc.start();
+    osc.stop(audioCtx.currentTime + duration);
+  } catch(e) {}
+}
+
+// Persistent Data & Escalating High-Cost Shop
+let savedGold = parseInt(localStorage.getItem('vs_standalone_gold') || '600');
+let bestSeconds = parseInt(localStorage.getItem('vs_standalone_best') || '0');
+let atkLv = parseInt(localStorage.getItem('vs_standalone_atk_lv') || '0');
+let hpLv = parseInt(localStorage.getItem('vs_standalone_hp_lv') || '0');
+let magLv = parseInt(localStorage.getItem('vs_standalone_mag_lv') || '0'); // Max Lv.3 (1~2 player widths)
+let clearedDiffs = JSON.parse(localStorage.getItem('vs_standalone_cleared_diffs') || '{}');
+
+const MAG_COSTS = [150, 350, 700]; // Strictly capped at Lv.3
+
+// Infinite Escalating Cost Formulas for endless gold sink!
+function getAtkCost(lv) { return Math.round(100 * Math.pow(1.45, lv)); }
+function getHpCost(lv)  { return Math.round(80 * Math.pow(1.45, lv)); }
+
+function getPermAtkBonus() { return +(1.0 + atkLv * 0.25).toFixed(2); }
+function getPermHpBonus() { return hpLv * 35; }
+function getMagnetRadius() { return 40 + magLv * 14; }
+
+// Starting Difficulty Presets (4 Tiers) + Adaptive Scaling from Infinite Upgrades
+const DIFFICULTIES = {
+  easy:   { name: '입문(Easy)',   hpMult: 0.75, spdMult: 0.88, spawnRate: 1.2,  goldMult: 0.8, color: '#22c55e', desc: '[입문] 적 체력/속도 감소, 초보자용 (적 스탯 x0.75 / 골드 보상 x0.8)' },
+  normal: { name: '일반(Normal)', hpMult: 1.0,  spdMult: 1.0,  spawnRate: 1.0,  goldMult: 1.0, color: '#38bdf8', desc: '[일반] 표준 밸런스 (적 스탯 x1.0 / 골드 보상 x1.0)' },
+  hard:   { name: '숙련(Hard)',   hpMult: 1.6,  spdMult: 1.15, spawnRate: 0.78, goldMult: 1.5, color: '#f97316', desc: '[숙련] 강화된 적 물량과 속도, 높은 보상 (적 스탯 x1.6 / 골드 보상 x1.5)' },
+  hell:   { name: '지옥(Hell)',   hpMult: 2.6,  spdMult: 1.3,  spawnRate: 0.58, goldMult: 2.5, color: '#ef4444', desc: '[지옥] 고강화 유저용 극한 난이도 (적 스탯 x2.6 / 골드 보상 x2.5)' }
+};
+let selectedDiff = 'normal';
+
+// Adaptive difficulty scaling: as player's infinite ATK+HP levels rise, enemies also scale progressively!
+function getAdaptiveUpgradeScale() {
+  const totalPowerLv = atkLv + hpLv;
+  return +(1.0 + totalPowerLv * 0.12).toFixed(2);
+}
+
+function setDifficulty(d) {
+  if (clearedDiffs[d]) {
+    // If clicked difficulty is already cleared, auto-select next available difficulty
+    const order = ['easy', 'normal', 'hard', 'hell'];
+    const nextAvail = order.find(k => !clearedDiffs[k]);
+    if (nextAvail) d = nextAvail;
+  }
+  selectedDiff = d;
+  const labels = { easy: '입문 (Easy)', normal: '일반 (Normal)', hard: '숙련 (Hard)', hell: '지옥 (Hell)' };
+  ['easy', 'normal', 'hard', 'hell'].forEach(k => {
+    const el = document.getElementById('diff_' + k);
+    if (!el) return;
+    if (clearedDiffs[k]) {
+      el.textContent = `🏆 ${labels[k]} CLEAR`;
+      el.style.opacity = '0.45';
+      el.style.cursor = 'not-allowed';
+      el.style.outline = 'none';
+    } else {
+      el.textContent = labels[k];
+      el.style.opacity = '1';
+      el.style.cursor = 'pointer';
+      el.style.outline = (k === d) ? '2px solid #fff' : 'none';
+    }
+  });
+  const descEl = document.getElementById('diffDescTxt');
+  if (descEl) {
+    if (clearedDiffs[d]) {
+      descEl.textContent = `🎉 모든 난이도를 정복하셨습니다! (우측 하단 클리어 초기화로 재도전 가능)`;
+      descEl.style.color = '#facc15';
+    } else {
+      descEl.textContent = DIFFICULTIES[d].desc + ` | 현재 강화 연동 난이도 배율: x${getAdaptiveUpgradeScale()}`;
+      descEl.style.color = DIFFICULTIES[d].color;
+    }
+  }
+}
+function resetClearedDiffs() {
+  clearedDiffs = {};
+  localStorage.removeItem('vs_standalone_cleared_diffs');
+  refreshTitleUI();
+}
+
+function formatTime(sec) {
+  const m = String(Math.floor(sec / 60)).padStart(2, '0');
+  const s = String(sec % 60).padStart(2, '0');
+  return `${m}:${s}`;
+}
+
+function refreshTitleUI() {
+  document.getElementById('goldDisplay').textContent = savedGold;
+  document.getElementById('bestTimeDisplay').textContent = formatTime(bestSeconds);
+
+  const btnAtk = document.getElementById('btnBuyAtk');
+  if (btnAtk) {
+    const cost = getAtkCost(atkLv);
+    btnAtk.textContent = `⚔️ 공격력 Lv.${atkLv} [무제한] (+25% / ${cost}G)`;
+  }
+
+  const btnHp = document.getElementById('btnBuyHp');
+  if (btnHp) {
+    const cost = getHpCost(hpLv);
+    btnHp.textContent = `❤️ 최대체력 Lv.${hpLv} [무제한] (+35 / ${cost}G)`;
+  }
+
+  const btnMag = document.getElementById('btnBuyMag');
+  if (btnMag) {
+    if (magLv >= 3) {
+      btnMag.textContent = `🧲 자석 범위 MAX (캐릭터 1.6개 반경 제한)`;
+      btnMag.style.opacity = '0.5'; btnMag.style.cursor = 'not-allowed';
+    } else {
+      btnMag.textContent = `🧲 경험치 자석 Lv.${magLv}/3 (+14px / ${MAG_COSTS[magLv]}G)`;
+      btnMag.style.opacity = '1'; btnMag.style.cursor = 'pointer';
+    }
+  }
+  setDifficulty(selectedDiff);
+}
+refreshTitleUI();
+
+// Game State
+const player = {
+  x: 0, y: 0, size: 26, speed: 4.2,
+  hp: 100, maxHp: 100, invuln: 0,
+  xp: 0, maxXp: 100, level: 1,
+  kills: 0, blades: 2, multishot: 1, auraRadius: 80,
+  lightningDmg: 50, lightningInterval: 80,
+  dashCooldown: 0, dashTime: 0, className: '전사(Warrior)'
+};
+
+let dmgStats = { bullet: 0, blade: 0, skill: 0 };
+let mouse = { x: 480, y: 300 };
+let keys = {};
+let bullets = [];
+let enemyBullets = [];
+let enemies = [];
+let gems = [];
+let items = [];
+let particles = [];
+let floatTexts = [];
+let trails = [];
+let lightningBolts = [];
+let boss = null;
+let solarReaper = null;
+let solarSpawnTargetSec = 300; // 5~8 mins (300~480s)
+let stageCleared = false;
+
+let gameTime = 0;
+let wave = 1;
+let shakeTime = 0;
+let waveBannerTimer = 0;
+let gameRunning = false;
+let paused = false;
+
+let currentTarget = null;
+function getPriorityTarget(player, enemies, boss) {
+  let bestTarget = null;
+  let bestScore = Infinity;
+
+  // Evaluate normal enemies: lower score = higher priority
+  enemies.forEach(en => {
+    const dist = Math.hypot(en.x - player.x, en.y - player.y);
+    if (dist > 600) return; // Out of range
+    // Priority multiplier: fast bats and ranged skeletons get targeted preferentially when reasonably close
+    let weight = 1.0;
+    if (en.type === 'bat') weight = 0.72;      // Fast approaching threat
+    else if (en.type === 'ranged') weight = 0.78; // Ranged shooter threat
+    else if (en.hp <= 20) weight = 0.85;       // Finish off low HP enemy quickly
+
+    const score = dist * weight;
+    if (score < bestScore) {
+      bestScore = score;
+      bestTarget = en;
+    }
+  });
+
+  // Evaluate Boss if present
+  if (boss) {
+    const bossDist = Math.hypot(boss.x - player.x, boss.y - player.y);
+    if (bossDist * 0.9 < bestScore) {
+      bestTarget = boss;
+    }
+  }
+  return bestTarget;
+}
+
+function drawTargetReticle(ctx, target, tick) {
+  if (!target) return;
+  ctx.save();
+  ctx.translate(target.x, target.y);
+  ctx.rotate(tick * 0.06);
+  ctx.strokeStyle = '#38bdf8';
+  ctx.lineWidth = 2;
+  const r = (target.size || 24) * 0.75 + Math.sin(tick * 0.2) * 3;
+  ctx.beginPath();
+  ctx.arc(0, 0, r, 0, Math.PI * 0.4);
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.arc(0, 0, r, Math.PI, Math.PI * 1.4);
+  ctx.stroke();
+  ctx.restore();
+}
+
+let tick = 0;
+let fps = 60, frameCount = 0, lastFpsTime = performance.now();
+
+canvas.addEventListener('mousemove', e => {
+  const rect = canvas.getBoundingClientRect();
+  mouse.x = e.clientX - rect.left;
+  mouse.y = e.clientY - rect.top;
+});
+
+window.addEventListener('keydown', e => {
+  keys[e.key.toLowerCase()] = true;
+  if (e.code === 'Space' && gameRunning && !paused && player.dashCooldown <= 0) {
+    player.dashTime = 14;
+    player.dashCooldown = 90;
+    playTone(340, 'triangle', 0.16, 0.08);
+  }
+  if (e.key === 'Escape' && gameRunning) {
+    paused = !paused;
+  }
+  if ((e.key === 't' || e.key === 'T') && gameRunning && !solarReaper) {
+    spawnSolarReaper();
+  }
+});
+window.addEventListener('keyup', e => keys[e.key.toLowerCase()] = false);
+
+function buyUpgrade(stat) {
+  if (stat === 'atk') {
+    const cost = getAtkCost(atkLv);
+    if (savedGold < cost) return;
+    savedGold -= cost;
+    atkLv++;
+    localStorage.setItem('vs_standalone_atk_lv', atkLv);
+  } else if (stat === 'hp') {
+    const cost = getHpCost(hpLv);
+    if (savedGold < cost) return;
+    savedGold -= cost;
+    hpLv++;
+    localStorage.setItem('vs_standalone_hp_lv', hpLv);
+  } else if (stat === 'mag') {
+    if (magLv >= 3 || savedGold < MAG_COSTS[magLv]) return;
+    savedGold -= MAG_COSTS[magLv];
+    magLv++;
+    localStorage.setItem('vs_standalone_mag_lv', magLv);
+  }
+  localStorage.setItem('vs_standalone_gold', savedGold);
+  refreshTitleUI();
+  playTone(680, 'sine', 0.22, 0.08);
+}
+
+function startGameWithClass(cls) {
+  player.x = 0; player.y = 0;
+  player.xp = 0; player.maxXp = 100; player.level = 1;
+  player.kills = 0; player.invuln = 0;
+  player.dashCooldown = 0; player.dashTime = 0;
+
+  if (cls === 'warrior') {
+    player.maxHp = 150 + getPermHpBonus();
+    player.speed = 4.0;
+    player.blades = 3;
+    player.multishot = 1;
+    player.auraRadius = 80;
+    player.lightningInterval = 85;
+    player.className = '전사(Warrior)';
+  } else if (cls === 'mage') {
+    player.maxHp = 110 + getPermHpBonus();
+    player.speed = 4.2;
+    player.blades = 1;
+    player.multishot = 1;
+    player.auraRadius = 120;
+    player.lightningInterval = 55;
+    player.className = '마법사(Mage)';
+  } else {
+    player.maxHp = 110 + getPermHpBonus();
+    player.speed = 5.2;
+    player.blades = 2;
+    player.multishot = 2;
+    player.auraRadius = 75;
+    player.lightningInterval = 80;
+    player.className = '레인저(Ranger)';
+  }
+  player.hp = player.maxHp;
+  dmgStats = { bullet: 0, blade: 0, skill: 0 };
+
+  bullets = []; enemyBullets = []; enemies = []; gems = [];
+  items = []; particles = []; floatTexts = []; trails = []; lightningBolts = [];
+  if (clearedDiffs[selectedDiff]) {
+    const order = ['easy', 'normal', 'hard', 'hell'];
+    const nextAvail = order.find(k => !clearedDiffs[k]);
+    if (nextAvail) setDifficulty(nextAvail);
+    else { alert('모든 난이도를 클리어했습니다! 잠금 초기화 후 다시 도전하세요.'); return; }
+  }
+  boss = null;
+  solarReaper = null;
+  stageCleared = false;
+  // Randomize Solar Reaper spawn time between 5 mins (300s) and 8 mins (480s)
+  solarSpawnTargetSec = 300 + Math.floor(Math.random() * 181);
+  gameTime = 0; wave = 1; tick = 0;
+  waveBannerTimer = 120;
+
+  for (let i = 0; i < 10; i++) spawnEnemy();
+
+  document.getElementById('titleModal').classList.remove('active');
+  document.getElementById('reportModal').classList.remove('active');
+  gameRunning = true;
+  paused = false;
+  playTone(440, 'sine', 0.25, 0.06);
+}
+
+function selectSkill(sk) {
+  if (sk === 'blade') {
+    player.blades++;
+    player.hp = Math.min(player.maxHp, player.hp + 20);
+  } else if (sk === 'lightning') {
+    player.lightningDmg += 30;
+    player.lightningInterval = Math.max(30, player.lightningInterval - 10);
+  } else if (sk === 'multishot') {
+    player.multishot++;
+    player.auraRadius += 15;
+  }
+  document.getElementById('levelModal').classList.remove('active');
+  paused = false;
+  playTone(880, 'sine', 0.25, 0.07);
+}
+
+function spawnSolarReaper() {
+  if (solarReaper) return;
+  stageCleared = true;
+  clearedDiffs[selectedDiff] = true;
+  localStorage.setItem('vs_standalone_cleared_diffs', JSON.stringify(clearedDiffs));
+  savedGold += Math.round(300 * DIFFICULTIES[selectedDiff].goldMult);
+  localStorage.setItem('vs_standalone_gold', savedGold);
+
+  const angle = Math.random() * Math.PI * 2;
+  solarReaper = {
+    x: player.x + Math.cos(angle) * 460,
+    y: player.y + Math.sin(angle) * 460,
+    radius: 58,
+    speed: player.speed * 1.18 // Faster than player so it inevitably catches up
+  };
+  shakeTime = 45;
+  waveBannerTimer = 240;
+  playTone(880, 'sine', 0.4, 0.09);
+}
+
+function triggerGameOver(killedBySolar=false) {
+  gameRunning = false;
+  if (gameTime > bestSeconds) {
+    bestSeconds = gameTime;
+    localStorage.setItem('vs_standalone_best', bestSeconds);
+  }
+  const totalDmg = Math.max(1, dmgStats.bullet + dmgStats.blade + dmgStats.skill);
+  const pBullet = Math.round((dmgStats.bullet / totalDmg) * 100);
+  const pBlade = Math.round((dmgStats.blade / totalDmg) * 100);
+  const pSkill = Math.max(0, 100 - pBullet - pBlade);
+
+  const repTitle = document.querySelector('#reportModal h2');
+  if (stageCleared || killedBySolar) {
+    if (repTitle) {
+      repTitle.textContent = `🏆 STAGE CLEAR! - [${DIFFICULTIES[selectedDiff].name}] 정복 완료`;
+      repTitle.style.color = '#facc15';
+    }
+    document.getElementById('finalSummaryTxt').textContent = `☀️ 태양 사신 강림 (즉사 엔딩) — 해당 난이도가 영구 CLEAR 처리되어 잠깁니다! | 생존: ${formatTime(gameTime)} | 처치: ${player.kills} Kills`;
+  } else {
+    if (repTitle) {
+      repTitle.textContent = `💀 GAME OVER - 전투 분석 리포트`;
+      repTitle.style.color = '#ef4444';
+    }
+    document.getElementById('finalSummaryTxt').textContent = `생존 시간: ${formatTime(gameTime)} | 처치 수: ${player.kills} Kills | 도달 레벨: LV.${player.level}`;
+  }
+  document.getElementById('dmgBulletTxt').textContent = `${Math.round(dmgStats.bullet).toLocaleString()} (${pBullet}%)`;
+  document.getElementById('dmgBladeTxt').textContent = `${Math.round(dmgStats.blade).toLocaleString()} (${pBlade}%)`;
+  document.getElementById('dmgSkillTxt').textContent = `${Math.round(dmgStats.skill).toLocaleString()} (${pSkill}%)`;
+
+  document.getElementById('barBullet').style.width = `${pBullet}%`;
+  document.getElementById('barBlade').style.width = `${pBlade}%`;
+  document.getElementById('barSkill').style.width = `${pSkill}%`;
+
+  document.getElementById('reportModal').classList.add('active');
+  playTone(160, 'sawtooth', 0.4, 0.08);
+}
+
+function returnToTitle() {
+  document.getElementById('reportModal').classList.remove('active');
+  refreshTitleUI();
+  document.getElementById('titleModal').classList.add('active');
+}
+
+function spawnEnemy(forcedType) {
+  const angle = Math.random() * Math.PI * 2;
+  const dist = 520 + Math.random() * 100;
+  const x = player.x + Math.cos(angle) * dist;
+  const y = player.y + Math.sin(angle) * dist;
+
+  let type = 'normal';
+  const r = Math.random();
+  if (r < 0.28) type = 'bat';
+  else if (r < 0.48) type = 'golem';
+  else if (r < 0.65) type = 'ranged';
+  if (forcedType) type = forcedType;
+
+  const dCfg = DIFFICULTIES[selectedDiff];
+  const upgradeScale = getAdaptiveUpgradeScale();
+  const timeScale = 1 + (wave - 1) * 0.28 + (gameTime / 120) * 0.35;
+  const mult = timeScale * dCfg.hpMult * upgradeScale;
+  const spdM = dCfg.spdMult * Math.min(1.45, 1 + (atkLv + hpLv) * 0.02 + (wave - 1) * 0.03);
+  const stats = {
+    normal: { hp: 32 * mult, speed: 1.85 * spdM, size: 22, color: '#ef4444' },
+    bat:    { hp: 18 * mult, speed: 3.15 * spdM, size: 16, color: '#a855f7' },
+    golem:  { hp: 90 * mult, speed: 1.15 * spdM, size: 34, color: '#f97316' },
+    ranged: { hp: 26 * mult, speed: 1.5  * spdM, size: 20, color: '#eab308' }
+  }[type];
+
+  enemies.push({
+    x, y, type, hp: stats.hp, maxHp: stats.hp,
+    speed: stats.speed, size: stats.size, color: stats.color,
+    shootTimer: Math.floor(Math.random() * 80)
+  });
+}
+
+function spawnBoss() {
+  const dCfg = DIFFICULTIES[selectedDiff];
+  const bossHp = Math.round(1600 * wave * dCfg.hpMult * getAdaptiveUpgradeScale());
+  boss = {
+    x: player.x + 340, y: player.y - 160,
+    hp: bossHp, maxHp: bossHp, size: 66, speed: 1.4 * dCfg.spdMult,
+    chargeTimer: 150, targetX: player.x, targetY: player.y
+  };
+  shakeTime = 30;
+  playTone(120, 'sawtooth', 0.4, 0.09);
+}
+
+function update() {
+  if (!gameRunning || paused) return;
+  tick++;
+
+  if (tick % 60 === 0) {
+    gameTime++;
+    if (gameTime >= solarSpawnTargetSec && !solarReaper) {
+      spawnSolarReaper();
+    }
+    if (gameTime % 25 === 0) {
+      wave++;
+      waveBannerTimer = 140;
+      // 360 degree swarm spawn
+      for (let k = 0; k < 10; k++) {
+        const a = (k / 10) * Math.PI * 2;
+        enemies.push({
+          x: player.x + Math.cos(a) * 350,
+          y: player.y + Math.sin(a) * 350,
+          type: 'bat', hp: 20 * wave, maxHp: 20 * wave,
+          speed: 2.9, size: 16, color: '#a855f7', shootTimer: 0
+        });
+      }
+      if (!boss) spawnBoss();
+    }
+  }
+
+  // 8-way Normalized Movement
+  let dx = 0, dy = 0;
+  if (keys['w'] || keys['arrowup']) dy -= 1;
+  if (keys['s'] || keys['arrowdown']) dy += 1;
+  if (keys['a'] || keys['arrowleft']) dx -= 1;
+  if (keys['d'] || keys['arrowright']) dx += 1;
+
+  if (dx !== 0 || dy !== 0) {
+    const len = Math.hypot(dx, dy);
+    dx /= len; dy /= len;
+    const spd = (player.dashTime > 0) ? player.speed * 2.6 : player.speed;
+    player.x += dx * spd;
+    player.y += dy * spd;
+  }
+
+  if (player.dashTime > 0) {
+    player.dashTime--;
+    if (tick % 2 === 0) trails.push({ x: player.x, y: player.y, alpha: 0.75 });
+  }
+  if (player.dashCooldown > 0) player.dashCooldown--;
+  if (player.invuln > 0) player.invuln--;
+  if (shakeTime > 0) shakeTime--;
+  if (waveBannerTimer > 0) waveBannerTimer--;
+
+  // Smart Priority Auto-Target Shoot
+  currentTarget = getPriorityTarget(player, enemies, boss);
+  if (tick % 17 === 0 && currentTarget) {
+    const baseAngle = Math.atan2(currentTarget.y - player.y, currentTarget.x - player.x);
+    for (let i = 0; i < player.multishot; i++) {
+      const spread = (i - (player.multishot - 1) / 2) * 0.14;
+      bullets.push({
+        x: player.x, y: player.y,
+        vx: Math.cos(baseAngle + spread) * 9.8,
+        vy: Math.sin(baseAngle + spread) * 9.8,
+        life: 65
+      });
+    }
+    playTone(540, 'square', 0.05, 0.02);
+  }
+
+  // Lightning Strike
+  if (tick % player.lightningInterval === 0 && enemies.length > 0) {
+    const target = enemies[Math.floor(Math.random() * enemies.length)];
+    const dmg = Math.round(player.lightningDmg * getPermAtkBonus());
+    target.hp -= dmg;
+    dmgStats.skill += dmg;
+    lightningBolts.push({ x: target.x, y: target.y, life: 15 });
+    floatTexts.push({ x: target.x, y: target.y - 16, txt: `⚡${dmg}!`, color: '#facc15', life: 32, crit: true });
+    playTone(240, 'sawtooth', 0.1, 0.04);
+  }
+
+  // Fire Aura Damage
+  if (tick % 24 === 0) {
+    const dmg = Math.round(9 * getPermAtkBonus());
+    enemies.forEach(en => {
+      if (Math.hypot(en.x - player.x, en.y - player.y) < player.auraRadius) {
+        en.hp -= dmg;
+        dmgStats.skill += dmg;
+        floatTexts.push({ x: en.x, y: en.y - 10, txt: `${dmg}`, color: '#fb923c', life: 20, crit: false });
+      }
+    });
+  }
+
+  // Rotating Blades Damage
+  for (let i = 0; i < player.blades; i++) {
+    const ang = (tick * 0.075) + (i * Math.PI * 2 / player.blades);
+    const bx = player.x + Math.cos(ang) * 72;
+    const by = player.y + Math.sin(ang) * 72;
+    enemies.forEach(en => {
+      if (Math.hypot(en.x - bx, en.y - by) < en.size / 2 + 10 && tick % 9 === 0) {
+        const dmg = Math.round(18 * getPermAtkBonus());
+        en.hp -= dmg;
+        dmgStats.blade += dmg;
+        floatTexts.push({ x: en.x, y: en.y - 10, txt: `${dmg}`, color: '#38bdf8', life: 24, crit: false });
+      }
+    });
+  }
+
+  // Bullets Update & Knockback
+  bullets.forEach(b => {
+    b.x += b.vx; b.y += b.vy; b.life--;
+    enemies.forEach(en => {
+      if (b.life > 0 && Math.hypot(b.x - en.x, b.y - en.y) < en.size / 2 + 6) {
+        b.life = 0;
+        const crit = Math.random() < 0.25;
+        const dmg = Math.round((crit ? 38 : 19) * getPermAtkBonus());
+        en.hp -= dmg;
+        dmgStats.bullet += dmg;
+        en.x += b.vx * 1.1;
+        en.y += b.vy * 1.1;
+        floatTexts.push({ x: en.x, y: en.y - 12, txt: crit ? `CRIT ${dmg}!` : `${dmg}`, color: crit ? '#facc15' : '#fff', life: 28, crit });
+      }
+    });
+    if (boss && b.life > 0 && Math.hypot(b.x - boss.x, b.y - boss.y) < boss.size / 2 + 6) {
+      b.life = 0;
+      const dmg = Math.round(24 * getPermAtkBonus());
+      boss.hp -= dmg;
+      dmgStats.bullet += dmg;
+      floatTexts.push({ x: boss.x, y: boss.y - 25, txt: `${dmg}`, color: '#facc15', life: 25, crit: false });
+    }
+  });
+  bullets = bullets.filter(b => b.life > 0);
+
+  // Spawn & Move Enemies
+  const spawnInterval = Math.max(10, Math.round((45 - wave * 4) * DIFFICULTIES[selectedDiff].spawnRate));
+  if (tick % spawnInterval === 0 && enemies.length < 48) spawnEnemy();
+
+  enemies.forEach(en => {
+    const ang = Math.atan2(player.y - en.y, player.x - en.x);
+    en.x += Math.cos(ang) * en.speed;
+    en.y += Math.sin(ang) * en.speed;
+
+    if (en.type === 'ranged') {
+      en.shootTimer++;
+      if (en.shootTimer > 115) {
+        en.shootTimer = 0;
+        enemyBullets.push({ x: en.x, y: en.y, vx: Math.cos(ang) * 4.3, vy: Math.sin(ang) * 4.3, life: 120 });
+      }
+    }
+
+    if (Math.hypot(player.x - en.x, player.y - en.y) < (player.size + en.size) / 2) {
+      if (player.invuln <= 0 && player.dashTime <= 0) {
+        player.hp -= 12;
+        player.invuln = 30;
+        shakeTime = 12;
+        playTone(150, 'sawtooth', 0.1, 0.06);
+        if (player.hp <= 0) triggerGameOver();
+      }
+    }
+  });
+
+  enemies = enemies.filter(en => {
+    if (en.hp <= 0) {
+      player.kills++;
+      savedGold += Math.round(5 * DIFFICULTIES[selectedDiff].goldMult * (1 + wave * 0.15));
+      localStorage.setItem('vs_standalone_gold', savedGold);
+      gems.push({ x: en.x, y: en.y, val: en.type === 'golem' ? 35 : 18 });
+      if (Math.random() < 0.06) {
+        items.push({ x: en.x, y: en.y, type: Math.random() < 0.65 ? 'potion' : 'magnet' });
+      }
+      for (let p = 0; p < 8; p++) {
+        const pa = Math.random() * Math.PI * 2;
+        particles.push({ x: en.x, y: en.y, vx: Math.cos(pa) * 3.6, vy: Math.sin(pa) * 3.6, color: en.color, life: 24 });
+      }
+      return false;
+    }
+    return true;
+  });
+
+  // Boss AI & Telegraph Charge
+  if (boss) {
+    boss.chargeTimer--;
+    if (boss.chargeTimer > 45) {
+      const ang = Math.atan2(player.y - boss.y, player.x - boss.x);
+      boss.x += Math.cos(ang) * boss.speed;
+      boss.y += Math.sin(ang) * boss.speed;
+      boss.targetX = player.x;
+      boss.targetY = player.y;
+    } else if (boss.chargeTimer === 1) {
+      const ang = Math.atan2(boss.targetY - boss.y, boss.targetX - boss.x);
+      boss.x += Math.cos(ang) * 125;
+      boss.y += Math.sin(ang) * 125;
+      for (let r = 0; r < 12; r++) {
+        const ra = (r / 12) * Math.PI * 2;
+        enemyBullets.push({ x: boss.x, y: boss.y, vx: Math.cos(ra) * 4.8, vy: Math.sin(ra) * 4.8, life: 110 });
+      }
+      boss.chargeTimer = 160;
+      shakeTime = 16;
+    }
+    if (Math.hypot(player.x - boss.x, player.y - boss.y) < (player.size + boss.size) / 2 && player.invuln <= 0) {
+      player.hp -= 20;
+      player.invuln = 35;
+      shakeTime = 18;
+      if (player.hp <= 0) triggerGameOver();
+    }
+    if (boss.hp <= 0) {
+      savedGold += 80;
+      localStorage.setItem('vs_standalone_gold', savedGold);
+      for (let p = 0; p < 25; p++) {
+        const pa = Math.random() * Math.PI * 2;
+        particles.push({ x: boss.x, y: boss.y, vx: Math.cos(pa) * 5, vy: Math.sin(pa) * 5, color: '#facc15', life: 40 });
+      }
+      boss = null;
+    }
+  }
+
+  // Solar Reaper (Step 34: Invincible, chases player, instant kill on contact!)
+  if (solarReaper) {
+    const ang = Math.atan2(player.y - solarReaper.y, player.x - solarReaper.x);
+    solarReaper.x += Math.cos(ang) * solarReaper.speed;
+    solarReaper.y += Math.sin(ang) * solarReaper.speed;
+    solarReaper.speed += 0.002; // Gradually accelerates so escape is impossible
+    if (tick % 5 === 0) {
+      const pa = Math.random() * Math.PI * 2;
+      particles.push({
+        x: solarReaper.x + Math.cos(pa) * solarReaper.radius * 0.8,
+        y: solarReaper.y + Math.sin(pa) * solarReaper.radius * 0.8,
+        vx: Math.cos(pa) * 2.5, vy: Math.sin(pa) * 2.5, color: '#facc15', life: 25
+      });
+    }
+    // Instant death collision (ignores invuln & dash!)
+    if (Math.hypot(player.x - solarReaper.x, player.y - solarReaper.y) < player.size * 0.5 + solarReaper.radius * 0.75) {
+      player.hp = 0;
+      floatTexts.push({ x: player.x, y: player.y - 25, txt: '☀️ INSTANT DEATH (999,999)!', color: '#facc15', life: 60, crit: true });
+      triggerGameOver(true);
+    }
+  }
+
+  // Enemy Bullets
+  enemyBullets.forEach(eb => {
+    eb.x += eb.vx; eb.y += eb.vy; eb.life--;
+    if (Math.hypot(eb.x - player.x, eb.y - player.y) < player.size / 2 + 5 && player.invuln <= 0 && player.dashTime <= 0) {
+      eb.life = 0;
+      player.hp -= 10;
+      player.invuln = 25;
+      shakeTime = 10;
+      if (player.hp <= 0) triggerGameOver();
+    }
+  });
+  enemyBullets = enemyBullets.filter(eb => eb.life > 0);
+
+  // Gems Magnet & Level Up (Capped at 1~2 player body widths around player!)
+  const magRadius = getMagnetRadius();
+  gems.forEach(g => {
+    const d = Math.hypot(player.x - g.x, player.y - g.y);
+    if (d < magRadius) {
+      g.x += (player.x - g.x) * 0.22;
+      g.y += (player.y - g.y) * 0.22;
+    }
+    if (d < 22) {
+      g.collected = true;
+      player.xp += g.val;
+      if (player.xp >= player.maxXp) {
+        player.xp -= player.maxXp;
+        player.level++;
+        player.maxXp = Math.round(player.maxXp * 1.25);
+        paused = true;
+        document.getElementById('levelModal').classList.add('active');
+        playTone(680, 'sine', 0.25, 0.07);
+      }
+    }
+  });
+  gems = gems.filter(g => !g.collected);
+
+  // Field Items
+  items.forEach(it => {
+    if (Math.hypot(player.x - it.x, player.y - it.y) < 28) {
+      it.used = true;
+      if (it.type === 'potion') {
+        player.hp = Math.min(player.maxHp, player.hp + 40);
+        floatTexts.push({ x: player.x, y: player.y - 20, txt: '+40 HP', color: '#4ade80', life: 35, crit: true });
+      }
+      if (it.type === 'magnet') {
+        gems.forEach(g => { g.x = player.x; g.y = player.y; });
+        floatTexts.push({ x: player.x, y: player.y - 20, txt: 'MAGNET!', color: '#38bdf8', life: 35, crit: true });
+      }
+      playTone(760, 'sine', 0.18, 0.06);
+    }
+  });
+  items = items.filter(it => !it.used);
+
+  particles.forEach(p => { p.x += p.vx; p.y += p.vy; p.life--; });
+  particles = particles.filter(p => p.life > 0);
+  floatTexts.forEach(ft => { ft.y -= 1.2; ft.life--; });
+  floatTexts = floatTexts.filter(ft => ft.life > 0);
+  trails.forEach(t => t.alpha -= 0.06);
+  trails = trails.filter(t => t.alpha > 0);
+  lightningBolts.forEach(l => l.life--);
+  lightningBolts = lightningBolts.filter(l => l.life > 0);
+}
+
+
+
+function drawSolarReaper(ctx, reaper, tick) {
+  if (!reaper) return;
+  ctx.save();
+  ctx.translate(reaper.x, reaper.y);
+
+  // Outer scorching corona aura
+  const grad = ctx.createRadialGradient(0, 0, 15, 0, 0, reaper.radius * 1.65);
+  grad.addColorStop(0, 'rgba(255, 255, 255, 1)');
+  grad.addColorStop(0.3, 'rgba(250, 204, 21, 0.95)');
+  grad.addColorStop(0.65, 'rgba(249, 115, 22, 0.55)');
+  grad.addColorStop(1, 'rgba(220, 38, 38, 0)');
+  ctx.fillStyle = grad;
+  ctx.beginPath();
+  ctx.arc(0, 0, reaper.radius * 1.65, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Rotating solar flare spikes
+  ctx.save();
+  ctx.rotate(tick * 0.04);
+  ctx.fillStyle = '#f97316';
+  ctx.shadowColor = '#ef4444';
+  ctx.shadowBlur = 25;
+  const spikes = 12;
+  ctx.beginPath();
+  for (let i = 0; i < spikes * 2; i++) {
+    const r = (i % 2 === 0) ? reaper.radius * 1.25 : reaper.radius * 0.78;
+    const a = (i / (spikes * 2)) * Math.PI * 2;
+    if (i === 0) ctx.moveTo(Math.cos(a) * r, Math.sin(a) * r);
+    else ctx.lineTo(Math.cos(a) * r, Math.sin(a) * r);
+  }
+  ctx.closePath();
+  ctx.fill();
+  ctx.restore();
+
+  // Inner blinding sun core
+  ctx.shadowColor = '#fef08a';
+  ctx.shadowBlur = 30;
+  ctx.fillStyle = '#fef08a';
+  ctx.beginPath();
+  ctx.arc(0, 0, reaper.radius * 0.65, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Label
+  ctx.fillStyle = '#fff';
+  ctx.font = 'bold 14px sans-serif';
+  ctx.textAlign = 'center';
+  ctx.shadowColor = '#000';
+  ctx.shadowBlur = 6;
+  ctx.fillText('☀️ SOLAR REAPER (무적·즉사)', 0, -reaper.radius * 1.3);
+  ctx.restore();
+}
+
+function drawStep33Background(ctx, player) {
+  // Deep cybernetic grid with glowing intersections and pulsing ambient hexes
+  const startX = Math.floor((player.x - 600) / 60) * 60;
+  const startY = Math.floor((player.y - 400) / 60) * 60;
+  ctx.strokeStyle = 'rgba(56, 189, 248, 0.12)';
+  ctx.lineWidth = 1;
+  for (let x = startX; x < player.x + 600; x += 60) {
+    ctx.beginPath(); ctx.moveTo(x, player.y - 400); ctx.lineTo(x, player.y + 400); ctx.stroke();
+  }
+  for (let y = startY; y < player.y + 400; y += 60) {
+    ctx.beginPath(); ctx.moveTo(player.x - 600, y); ctx.lineTo(player.x + 600, y); ctx.stroke();
+  }
+  ctx.fillStyle = 'rgba(56, 189, 248, 0.35)';
+  for (let x = startX; x < player.x + 600; x += 120) {
+    for (let y = startY; y < player.y + 400; y += 120) {
+      ctx.beginPath(); ctx.arc(x, y, 2, 0, Math.PI * 2); ctx.fill();
+    }
+  }
+}
+
+function drawHeroSprite(ctx, x, y, size, tick, mouseWorldX, mouseWorldY) {
+  ctx.save();
+  ctx.translate(x, y);
+  // Dynamic cape fluttering
+  const angle = Math.atan2(mouseWorldY - y, mouseWorldX - x);
+  ctx.save();
+  ctx.rotate(angle + Math.PI);
+  ctx.fillStyle = '#dc2626';
+  ctx.shadowColor = '#ef4444';
+  ctx.shadowBlur = 12;
+  ctx.beginPath();
+  ctx.moveTo(0, -10);
+  ctx.lineTo(22 + Math.sin(tick * 0.25) * 5, -14);
+  ctx.lineTo(18 + Math.cos(tick * 0.25) * 4, 0);
+  ctx.lineTo(22 + Math.sin(tick * 0.25) * 5, 14);
+  ctx.lineTo(0, 10);
+  ctx.closePath();
+  ctx.fill();
+  ctx.restore();
+
+  // Cyber Knight Body with Neon Glow
+  ctx.shadowColor = '#38bdf8';
+  ctx.shadowBlur = 18;
+  ctx.fillStyle = '#1d4ed8';
+  ctx.beginPath();
+  ctx.arc(0, 0, size * 0.55, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.lineWidth = 2.5;
+  ctx.strokeStyle = '#7dd3fc';
+  ctx.stroke();
+
+  // Glowing Visor Eyes facing cursor
+  ctx.rotate(angle);
+  ctx.fillStyle = '#fef08a';
+  ctx.shadowColor = '#facc15';
+  ctx.shadowBlur = 10;
+  ctx.fillRect(4, -6, 7, 3.5);
+  ctx.fillRect(4, 2.5, 7, 3.5);
+  ctx.restore();
+}
+
+function drawEnemySprite33(ctx, en, tick) {
+  ctx.save();
+  ctx.translate(en.x, en.y);
+  ctx.shadowColor = en.color;
+  ctx.shadowBlur = 14;
+  ctx.fillStyle = en.color;
+
+  if (en.type === 'bat') {
+    const wing = Math.sin(tick * 0.35) * 7;
+    ctx.beginPath();
+    ctx.moveTo(0, -6);
+    ctx.lineTo(-14, -8 + wing);
+    ctx.lineTo(-6, 4);
+    ctx.lineTo(0, 8);
+    ctx.lineTo(6, 4);
+    ctx.lineTo(14, -8 + wing);
+    ctx.closePath();
+    ctx.fill();
+  } else if (en.type === 'golem') {
+    ctx.rotate(tick * 0.02);
+    ctx.beginPath();
+    for (let i = 0; i < 6; i++) {
+      const a = (i / 6) * Math.PI * 2;
+      const r = en.size * 0.58;
+      if (i === 0) ctx.moveTo(Math.cos(a) * r, Math.sin(a) * r);
+      else ctx.lineTo(Math.cos(a) * r, Math.sin(a) * r);
+    }
+    ctx.closePath();
+    ctx.fill();
+    ctx.strokeStyle = '#fed7aa';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+  } else if (en.type === 'ranged') {
+    ctx.rotate(-tick * 0.05);
+    ctx.beginPath();
+    for (let i = 0; i < 4; i++) {
+      const a = (i / 4) * Math.PI * 2;
+      ctx.lineTo(Math.cos(a) * (en.size * 0.65), Math.sin(a) * (en.size * 0.65));
+    }
+    ctx.closePath();
+    ctx.fill();
+  } else {
+    // Spiky Demon
+    ctx.beginPath();
+    ctx.arc(0, 0, en.size * 0.5, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = '#fef08a';
+    ctx.fillRect(-5, -3, 3, 3);
+    ctx.fillRect(2, -3, 3, 3);
+  }
+  ctx.restore();
+}
+
+function draw() {
+  ctx.save();
+  let shakeX = 0, shakeY = 0;
+  if (shakeTime > 0) {
+    shakeX = (Math.random() - 0.5) * 10;
+    shakeY = (Math.random() - 0.5) * 10;
+  }
+
+  const camX = canvas.width / 2 - player.x + shakeX;
+  const camY = canvas.height / 2 - player.y + shakeY;
+
+  ctx.fillStyle = '#0b1120';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  ctx.save();
+  ctx.translate(camX, camY);
+
+  drawStep33Background(ctx, player);
+
+  // XP Magnet Range Ring (Shows the 1~2 character width pickup boundary)
+  ctx.save();
+  ctx.strokeStyle = 'rgba(168, 85, 247, 0.45)';
+  ctx.lineWidth = 1.5;
+  ctx.setLineDash([4, 4]);
+  ctx.beginPath();
+  ctx.arc(player.x, player.y, getMagnetRadius(), 0, Math.PI * 2);
+  ctx.stroke();
+  ctx.restore();
+
+  // Fire Aura
+  const grad = ctx.createRadialGradient(player.x, player.y, 10, player.x, player.y, player.auraRadius);
+  grad.addColorStop(0, 'rgba(249, 115, 22, 0.28)');
+  grad.addColorStop(1, 'rgba(249, 115, 22, 0.02)');
+  ctx.fillStyle = grad;
+  ctx.beginPath(); ctx.arc(player.x, player.y, player.auraRadius, 0, Math.PI * 2); ctx.fill();
+  ctx.strokeStyle = 'rgba(251, 146, 60, 0.45)';
+  ctx.stroke();
+
+  // Field Items
+  items.forEach(it => {
+    ctx.fillStyle = it.type === 'potion' ? '#ec4899' : '#38bdf8';
+    ctx.beginPath(); ctx.arc(it.x, it.y, 11, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#fff';
+    ctx.font = 'bold 11px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText(it.type === 'potion' ? 'HP+' : 'MAG', it.x, it.y - 15);
+  });
+
+  // XP Gems
+  gems.forEach(g => {
+    ctx.fillStyle = g.val > 20 ? '#38bdf8' : '#22c55e';
+    ctx.beginPath();
+    ctx.moveTo(g.x, g.y - 7);
+    ctx.lineTo(g.x + 6, g.y);
+    ctx.lineTo(g.x, g.y + 7);
+    ctx.lineTo(g.x - 6, g.y);
+    ctx.closePath();
+    ctx.fill();
+  });
+
+  // Dash Trails
+  trails.forEach(t => {
+    ctx.fillStyle = `rgba(56, 189, 248, ${t.alpha})`;
+    ctx.fillRect(t.x - player.size/2, t.y - player.size/2, player.size, player.size);
+  });
+
+  // Rotating Blades
+  for (let i = 0; i < player.blades; i++) {
+    const ang = (tick * 0.075) + (i * Math.PI * 2 / player.blades);
+    const bx = player.x + Math.cos(ang) * 72;
+    const by = player.y + Math.sin(ang) * 72;
+    ctx.save();
+    ctx.translate(bx, by);
+    ctx.rotate(ang * 2.5);
+    ctx.shadowColor = '#38bdf8';
+    ctx.shadowBlur = 16;
+    ctx.fillStyle = '#e0f2fe';
+    ctx.beginPath();
+    ctx.arc(0, 0, 12, 0, Math.PI * 1.3);
+    ctx.lineTo(0, 0);
+    ctx.closePath();
+    ctx.fill();
+    ctx.restore();
+  }
+
+  // Player & Overhead HP Bar
+  if (player.invuln % 4 < 2) {
+    const aimX = currentTarget ? currentTarget.x : player.x + 100;
+    const aimY = currentTarget ? currentTarget.y : player.y;
+    drawHeroSprite(ctx, player.x, player.y, player.size, tick, aimX, aimY);
+  }
+  ctx.fillStyle = '#334155';
+  ctx.fillRect(player.x - 22, player.y - 24, 44, 6);
+  ctx.fillStyle = '#22c55e';
+  ctx.fillRect(player.x - 22, player.y - 24, 44 * Math.max(0, player.hp / player.maxHp), 6);
+
+  // Enemies
+  enemies.forEach(en => {
+    drawEnemySprite33(ctx, en, tick);
+    if (en.hp < en.maxHp) {
+      ctx.fillStyle = '#334155';
+      ctx.fillRect(en.x - 14, en.y - en.size/2 - 8, 28, 4);
+      ctx.fillStyle = '#ef4444';
+      ctx.fillRect(en.x - 14, en.y - en.size/2 - 8, 28 * Math.max(0, en.hp / en.maxHp), 4);
+    }
+  });
+  if (currentTarget) drawTargetReticle(ctx, currentTarget, tick);
+
+  // Boss & Telegraph Line
+  if (boss) {
+    if (boss.chargeTimer <= 45) {
+      ctx.strokeStyle = 'rgba(239, 68, 68, 0.85)';
+      ctx.lineWidth = 4;
+      ctx.setLineDash([8, 6]);
+      ctx.beginPath(); ctx.moveTo(boss.x, boss.y); ctx.lineTo(boss.targetX, boss.targetY); ctx.stroke();
+      ctx.setLineDash([]);
+    }
+    ctx.fillStyle = '#dc2626';
+    ctx.fillRect(boss.x - boss.size/2, boss.y - boss.size/2, boss.size, boss.size);
+    ctx.strokeStyle = '#facc15'; ctx.lineWidth = 3;
+    ctx.strokeRect(boss.x - boss.size/2, boss.y - boss.size/2, boss.size, boss.size);
+    ctx.fillStyle = '#fff'; ctx.font = 'bold 13px sans-serif'; ctx.textAlign = 'center';
+    ctx.fillText('👹 BOSS', boss.x, boss.y + 5);
+  }
+  if (solarReaper) drawSolarReaper(ctx, solarReaper, tick);
+
+  // Bullets
+  bullets.forEach(b => {
+    ctx.save();
+    ctx.shadowColor = '#38bdf8';
+    ctx.shadowBlur = 12;
+    ctx.strokeStyle = '#e0f2fe';
+    ctx.lineWidth = 4;
+    ctx.beginPath();
+    ctx.moveTo(b.x, b.y);
+    ctx.lineTo(b.x - b.vx * 1.8, b.y - b.vy * 1.8);
+    ctx.stroke();
+    ctx.restore();
+  });
+  ctx.fillStyle = '#f43f5e';
+  enemyBullets.forEach(eb => { ctx.beginPath(); ctx.arc(eb.x, eb.y, 6, 0, Math.PI * 2); ctx.fill(); });
+
+  // Lightning FX
+  lightningBolts.forEach(l => {
+    ctx.strokeStyle = '#facc15'; ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.moveTo(l.x - 10, l.y - 140);
+    ctx.lineTo(l.x + 8, l.y - 70);
+    ctx.lineTo(l.x - 6, l.y - 30);
+    ctx.lineTo(l.x, l.y);
+    ctx.stroke();
+  });
+
+  // Particles & Floating Texts
+  particles.forEach(p => { ctx.fillStyle = p.color; ctx.fillRect(p.x, p.y, 4, 4); });
+  floatTexts.forEach(ft => {
+    ctx.fillStyle = ft.color;
+    ctx.font = ft.crit ? 'bold 16px sans-serif' : 'bold 13px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText(ft.txt, ft.x, ft.y);
+  });
+
+  ctx.restore(); // Screen-space HUD
+
+  // Cinematic Post-Processing Vignette & Ambient Lighting
+  const vig = ctx.createRadialGradient(canvas.width/2, canvas.height/2, 220, canvas.width/2, canvas.height/2, 560);
+  vig.addColorStop(0, 'rgba(0,0,0,0)');
+  vig.addColorStop(1, 'rgba(2, 6, 23, 0.65)');
+  ctx.fillStyle = vig;
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  // Top XP Bar
+  ctx.fillStyle = '#1e293b';
+  ctx.fillRect(0, 0, canvas.width, 16);
+  ctx.fillStyle = '#3b82f6';
+  ctx.fillRect(0, 0, canvas.width * (player.xp / player.maxXp), 16);
+  ctx.fillStyle = '#fff';
+  ctx.font = 'bold 11px sans-serif';
+  ctx.textAlign = 'center';
+  ctx.fillText(`LV.${player.level} (${player.className}) — XP ${player.xp} / ${player.maxXp}`, canvas.width / 2, 12);
+
+  // Left Top HUD
+  ctx.fillStyle = 'rgba(15, 23, 42, 0.82)';
+  ctx.fillRect(14, 26, 225, 64);
+  ctx.strokeStyle = '#475569';
+  ctx.strokeRect(14, 26, 225, 64);
+  ctx.fillStyle = '#f8fafc';
+  ctx.font = 'bold 18px sans-serif';
+  ctx.textAlign = 'left';
+  ctx.fillText(`⏱️ ${formatTime(gameTime)}   💀 ${player.kills} Kills`, 26, 52);
+  ctx.fillStyle = '#facc15';
+  ctx.font = 'bold 14px sans-serif';
+  ctx.fillText(`💰 ${savedGold}G | ${DIFFICULTIES[selectedDiff].name} W${wave}`, 26, 76);
+
+  // Boss HP Bar
+  if (boss) {
+    ctx.fillStyle = 'rgba(15, 23, 42, 0.88)';
+    ctx.fillRect(canvas.width / 2 - 190, 28, 380, 24);
+    ctx.fillStyle = '#dc2626';
+    ctx.fillRect(canvas.width / 2 - 188, 30, 376 * Math.max(0, boss.hp / boss.maxHp), 20);
+    ctx.strokeStyle = '#facc15';
+    ctx.strokeRect(canvas.width / 2 - 190, 28, 380, 24);
+    ctx.fillStyle = '#fff';
+    ctx.font = 'bold 12px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText(`👹 DEATH KNIGHT BOSS (${Math.max(0, Math.round(boss.hp))} / ${boss.maxHp})`, canvas.width / 2, 44);
+  }
+
+  // Wave Warning / Solar Reaper Clear Banner
+  if (waveBannerTimer > 0) {
+    if (solarReaper) {
+      ctx.fillStyle = 'rgba(234, 179, 8, 0.88)';
+      ctx.fillRect(0, 96, canvas.width, 42);
+      ctx.fillStyle = '#0f172a';
+      ctx.font = 'bold 18px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText(`☀️ [STAGE CLEAR 달성!] 무적의 태양 사신이 강림했습니다! (접촉 시 즉사 엔딩)`, canvas.width / 2, 123);
+    } else {
+      ctx.fillStyle = 'rgba(220, 38, 38, 0.78)';
+      ctx.fillRect(0, 96, canvas.width, 36);
+      ctx.fillStyle = '#fff';
+      ctx.font = 'bold 18px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText(`⚠️ WAVE ${wave} SWARM APPROACHING!`, canvas.width / 2, 120);
+    }
+  }
+
+  // Radar Minimap
+  const mx = canvas.width - 140, my = canvas.height - 140, mr = 124;
+  ctx.fillStyle = 'rgba(15, 23, 42, 0.85)';
+  ctx.fillRect(mx, my, mr, mr);
+  ctx.strokeStyle = '#38bdf8'; ctx.lineWidth = 2;
+  ctx.strokeRect(mx, my, mr, mr);
+  const cx = mx + mr / 2, cy = my + mr / 2;
+  ctx.fillStyle = '#3b82f6';
+  ctx.beginPath(); ctx.arc(cx, cy, 4, 0, Math.PI * 2); ctx.fill();
+  enemies.forEach(en => {
+    const rx = cx + (en.x - player.x) * 0.09;
+    const ry = cy + (en.y - player.y) * 0.09;
+    if (rx > mx && rx < mx + mr && ry > my && ry < my + mr) {
+      ctx.fillStyle = '#ef4444';
+      ctx.fillRect(rx - 1.5, ry - 1.5, 3, 3);
+    }
+  });
+  if (boss) {
+    const bx = cx + (boss.x - player.x) * 0.09;
+    const by = cy + (boss.y - player.y) * 0.09;
+    if (bx > mx && bx < mx + mr && by > my && by < my + mr) {
+      ctx.fillStyle = '#facc15';
+      ctx.beginPath(); ctx.arc(bx, by, 5, 0, Math.PI * 2); ctx.fill();
+    }
+  }
+  ctx.fillStyle = '#94a3b8'; ctx.font = '10px sans-serif'; ctx.textAlign = 'left';
+  ctx.fillText('RADAR MINIMAP', mx + 6, my + 12);
+
+  // FPS & Entity Monitor
+  const totalEntities = 1 + enemies.length + bullets.length + gems.length + particles.length;
+  ctx.fillStyle = 'rgba(15, 23, 42, 0.85)';
+  ctx.fillRect(canvas.width - 175, 26, 160, 48);
+  ctx.strokeStyle = '#334155';
+  ctx.strokeRect(canvas.width - 175, 26, 160, 48);
+  ctx.fillStyle = '#4ade80'; ctx.font = 'bold 12px monospace'; ctx.textAlign = 'left';
+  ctx.fillText(`FPS: ${fps} (60.0 Hz)`, canvas.width - 165, 45);
+  ctx.fillStyle = '#38bdf8';
+  ctx.fillText(`Entities: ${totalEntities} objs`, canvas.width - 165, 63);
+
+  // Pause Overlay
+  if (paused && !document.getElementById('levelModal').classList.contains('active')) {
+    ctx.fillStyle = 'rgba(2, 6, 23, 0.82)';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.fillStyle = '#facc15'; ctx.font = 'bold 34px sans-serif'; ctx.textAlign = 'center';
+    ctx.fillText('⏸️ PAUSED - 캐릭터 및 무기 상태창', canvas.width / 2, 220);
+    ctx.fillStyle = '#f8fafc'; ctx.font = '18px sans-serif';
+    ctx.fillText(`클래스: ${player.className} | 공격력 배율: x${getPermAtkBonus()} | 이동속도: ${player.speed}`, canvas.width / 2, 270);
+    ctx.fillText(`회전칼날: ${player.blades}개 | 다중탄환: ${player.multishot}발 | 화염오라: ${player.auraRadius}px`, canvas.width / 2, 305);
+    ctx.fillStyle = '#94a3b8'; ctx.font = '15px sans-serif';
+    ctx.fillText('ESC 키를 다시 누르면 전투가 재개됩니다', canvas.width / 2, 355);
+  }
+
+  ctx.restore();
+}
+
+function gameLoop(now) {
+  frameCount++;
+  if (now - lastFpsTime >= 1000) {
+    fps = frameCount;
+    frameCount = 0;
+    lastFpsTime = now;
+  }
+  update();
+  draw();
+  requestAnimationFrame(gameLoop);
+}
+requestAnimationFrame(gameLoop);
+</script>
+</body>
+</html>

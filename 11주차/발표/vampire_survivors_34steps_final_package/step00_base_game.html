@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<title>Step 00 - 원본 웹 게임 (기본 도형 추격)</title>
+<style>
+  body { margin: 0; background: #111; display: flex; justify-content: center; align-items: center; height: 100vh; color: #fff; font-family: sans-serif; }
+  canvas { background: #000; border: 2px solid #444; }
+</style>
+</head>
+<body>
+<canvas id="gameCanvas" width="800" height="600"></canvas>
+<script>
+const canvas = document.getElementById('gameCanvas');
+const ctx = canvas.getContext('2d');
+
+const player = { x: 400, y: 300, size: 24, speed: 4 };
+const keys = {};
+const enemies = [];
+let gameOver = false;
+
+window.addEventListener('keydown', e => keys[e.key] = true);
+window.addEventListener('keyup', e => keys[e.key] = false);
+
+setInterval(() => {
+  if (gameOver) return;
+  const side = Math.floor(Math.random() * 4);
+  let x = 0, y = 0;
+  if (side === 0) { x = Math.random() * 800; y = -20; }
+  if (side === 1) { x = 820; y = Math.random() * 600; }
+  if (side === 2) { x = Math.random() * 800; y = 620; }
+  if (side === 3) { x = -20; y = Math.random() * 600; }
+  enemies.push({ x, y, size: 20, speed: 1.8 });
+}, 1000);
+
+function update() {
+  if (gameOver) return;
+  if (keys['ArrowUp'] || keys['w']) player.y -= player.speed;
+  if (keys['ArrowDown'] || keys['s']) player.y += player.speed;
+  if (keys['ArrowLeft'] || keys['a']) player.x -= player.speed;
+  if (keys['ArrowRight'] || keys['d']) player.x += player.speed;
+
+  enemies.forEach(en => {
+    const angle = Math.atan2(player.y - en.y, player.x - en.x);
+    en.x += Math.cos(angle) * en.speed;
+    en.y += Math.sin(angle) * en.speed;
+    if (Math.abs(player.x - en.x) < 20 && Math.abs(player.y - en.y) < 20) {
+      gameOver = true;
+    }
+  });
+}
+
+function draw() {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  ctx.fillStyle = '#3b82f6';
+  ctx.fillRect(player.x - player.size/2, player.y - player.size/2, player.size, player.size);
+
+  ctx.fillStyle = '#ef4444';
+  enemies.forEach(en => {
+    ctx.fillRect(en.x - en.size/2, en.y - en.size/2, en.size, en.size);
+  });
+
+  if (gameOver) {
+    ctx.fillStyle = '#fff';
+    ctx.font = '40px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('GAME OVER', 400, 300);
+  }
+}
+
+function loop() {
+  update();
+  draw();
+  requestAnimationFrame(loop);
+}
+loop();
+</script>
+</body>
+</html>
